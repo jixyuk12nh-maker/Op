@@ -1492,22 +1492,34 @@ do
     	end
 
     	function UITabList._resize(self)
-    		local layout= self.instances.layout
-    		local cnt= #self.children
-
-    		local totalSize= layout.AbsoluteSize.X - (cnt - 1) * 4
-    		local size= totalSize / cnt
+    		local layout = self.instances.layout
+    		local visibleChildren = {}
 
     		for _, tab in self.children do
+    			if tab.instances.outline.Visible then
+    				table.insert(visibleChildren, tab)
+    			else
+    				tab.instances.outline.Size = UDim2.new(0, 0, 1, 0)
+    			end
+    		end
+
+    		local cnt = #visibleChildren
+    		if cnt == 0 then
+    			return
+    		end
+
+    		local totalSize = layout.AbsoluteSize.X - (cnt - 1) * 4
+    		local size = totalSize / cnt
+
+    		for _, tab in visibleChildren do
     			tab.instances.outline.Size = UDim2.new(0, size, 1, 0)
     		end
 
-    		local last= self.children[#self.children]
-    		local outline= last.instances.outline
-
-    		local curr= outline.AbsolutePosition.X + outline.AbsoluteSize.X
-    		local expected= layout.AbsolutePosition.X + layout.AbsoluteSize.X
-    		local diff= expected - curr
+    		local last = visibleChildren[#visibleChildren]
+    		local outline = last.instances.outline
+    		local curr = outline.AbsolutePosition.X + outline.AbsoluteSize.X
+    		local expected = layout.AbsolutePosition.X + layout.AbsoluteSize.X
+    		local diff = expected - curr
 
     		if diff ~= 0 then
     			outline.Size += UDim2.new(0, diff, 0, 0)
@@ -3554,42 +3566,143 @@ do
         local main= tabList:newTab("Combat")
         local mainTabs = main:newTabList()
         do
-            local aimbot = mainTabs:newTab("Aimbot"):intoSections()
+            local aimbot = mainTabs:newTab("Aimbot")
+            local aimbotTabs = aimbot:newTabList()
             do
-                local projectile_manip = aimbot:newSection("left", "Projectile Manipulation")
-                projectile_manip:newToggle("main/projectile_manip/enabled"):setLabel("Enable Projectile Manipulation")
-                projectile_manip:newDropdown("main/projectile_manip/method", false, {"Hitscan", "Teleport"}):set("Teleport")
-                projectile_manip:newLabel("projmaniplabel"):setLabel("'Teleport' method uses silent aim settings")
+                local mainTab = aimbotTabs:newTab("Main"):intoSections()
+                local mainSettings = mainTab:newSection("left", "Main")
+                mainSettings:newToggle("main/aimbot/enabled"):setLabel("Enabled")
+                local advancedMode = mainSettings:newToggle("main/aimbot/advanced_mode"):setLabel("Advanced Mode")
 
-                local visuals = aimbot:newSection("right", "Visuals")
-                visuals:newToggle("main/visuals/draw_fov"):setLabel("Draw Fov Circle"):newColorpicker("main/silent_aim/draw_fov/color"):set({rgb = Color3.new(1, 1, 1), alpha = 1})
+                local settings = mainTab:newSection("left", "Aimbot")
+                settings:newToggle("main/aimbot/closest_part"):setLabel("Closest Part")
+                settings:newToggle("main/aimbot/closest_position"):setLabel("Closest Position")
+                settings:newToggle("main/aimbot/delay_position"):setLabel("Delay Position")
+                settings:newToggle("main/aimbot/x_smooth"):setLabel("X Smooth")
+                settings:newToggle("main/aimbot/y_smooth"):setLabel("Y Smooth")
+                settings:newToggle("main/aimbot/jump_smoothing"):setLabel("Jump Smoothing")
+                local showFov = settings:newToggle("main/aimbot/show_fov"):setLabel("Show Fov")
+
+                local advancedTab = aimbotTabs:newTab("Advanced")
+                advancedTab.instances.outline.Visible = false
+                advancedTab.instances.canvas.Visible = false
+                local advanced = advancedTab:intoSections()
+                local fovSettings = advanced:newSection("left", "Fov Settings")
+                local fovControls = {
+                    fovSettings:newToggle("main/aimbot/outline"):setLabel("Outline"),
+                    fovSettings:newToggle("main/aimbot/fill"):setLabel("Fill"),
+                    fovSettings:newToggle("main/aimbot/lerp"):setLabel("Lerp"),
+                    fovSettings:newToggle("main/aimbot/moving_rotation"):setLabel("Moving Rotation"),
+                    fovSettings:newToggle("main/aimbot/speed"):setLabel("Speed"),
+                    fovSettings:newToggle("main/aimbot/fov_settings"):setLabel("Fov Settings"),
+                    fovSettings:newToggle("main/aimbot/radius"):setLabel("Radius"),
+                    fovSettings:newToggle("main/aimbot/smoothing"):setLabel("Smoothing")
+                }
+                for _, control in fovControls do
+                    control.instances.button.Visible = false
+                end
+
+                advancedMode.changed:Connect(function(state)
+                    advancedTab.instances.outline.Visible = state
+                    advancedTab.instances.canvas.Visible = false
+                    if not state then
+                        mainTab:setVisible(true)
+                    end
+                    aimbotTabs:_resize()
+                end)
+                showFov.changed:Connect(function(state)
+                    for _, control in fovControls do
+                        control.instances.button.Visible = state
+                    end
+                end)
             end
 
-            local silentaimtab = mainTabs:newTab("Silent Aim"):intoSections()
+            local silentaimtab = mainTabs:newTab("Silent Aim")
+            local silentAimTabs = silentaimtab:newTabList()
             do
-                local silentaim = silentaimtab:newSection("left", "Silent Aim")
-                silentaim:newToggle("main/silent_aim/enabled"):setLabel("Enable Silent"):newKeybind("main/silent_aim/enabled/key")
-                silentaim:newToggle("main/silent_aim/randomize_aimpoint"):setLabel("Randomize Aimpoint")
-                silentaim:newToggle("main/silent_aim/visible_check"):setLabel("Visible Check")
-                silentaim:newToggle("main/silent_aim/auto_shoot"):setLabel("Auto Shoot")
-                silentaim:newSlider("main/silent_aim/hitchance", 1, 100, 1):set(100):setLabel("Hitchance (%)")
-                silentaim:newSlider("main/silent_aim/fov", 1, 600, 1):set(100):setLabel("Field Of View (px)")
-                silentaim:newToggle("main/silent_aim/ignore_fov"):setLabel("Ignore FOV")
-                silentaim:newLabel("irrelevant"):setLabel("Hitparts")
-                silentaim:newDropdown("main/silent_aim/hitparts", true, {"Head", "Body"}):set({
-                    ["Head"] = true,
-                    ["Body"] = true,
-                })
-                silentaim:newLabel("Hitpart Selection Method"):setLabel("Hitpart Selection Method")
-                silentaim:newDropdown("main/silent_aim/selection_method", false, {"Closest", "Random"}):set("Closest")
-                silentaim:newLabel("Preferred Random Hitpart"):setLabel("Preferred Random Hitpart")
-                silentaim:newDropdown("main/silent_aim/preferred_hitpart", false, {"Head", "Body"}):set("Head")
+                local mainTab = silentAimTabs:newTab("Main"):intoSections()
+                local mainSettings = mainTab:newSection("left", "Main")
+                mainSettings:newToggle("main/silent_aim/enabled"):setLabel("Enabled")
+                local advancedMode = mainSettings:newToggle("main/silent_aim/advanced_mode"):setLabel("Advanced Mode")
+
+                local settings = mainTab:newSection("left", "Silent Aim")
+                settings:newToggle("main/silent_aim/manipulation"):setLabel("Manipulation")
+                settings:newToggle("main/silent_aim/closest_part"):setLabel("Closest Part")
+                settings:newToggle("main/silent_aim/visualize"):setLabel("Visualize")
+                settings:newToggle("main/silent_aim/headshot_chance"):setLabel("Headshot Chance")
+                settings:newToggle("main/silent_aim/hit_chance"):setLabel("Hit Chance")
+                settings:newSlider("main/silent_aim/hit_chance_value", 1, 100, 1):set(100):setLabel("Hit Chance (%)")
+                local showFov = settings:newToggle("main/silent_aim/show_fov"):setLabel("Show Fov")
+
+                local advancedTab = silentAimTabs:newTab("Advanced")
+                advancedTab.instances.outline.Visible = false
+                advancedTab.instances.canvas.Visible = false
+                local advanced = advancedTab:intoSections()
+                local fovSettings = advanced:newSection("left", "Fov Settings")
+                local fovControls = {
+                    fovSettings:newToggle("main/silent_aim/outline"):setLabel("Outline"),
+                    fovSettings:newToggle("main/silent_aim/fill"):setLabel("Fill"),
+                    fovSettings:newToggle("main/silent_aim/lerp"):setLabel("Lerp"),
+                    fovSettings:newToggle("main/silent_aim/moving_rotation"):setLabel("Moving Rotation"),
+                    fovSettings:newToggle("main/silent_aim/speed"):setLabel("Speed"),
+                    fovSettings:newToggle("main/silent_aim/fov_settings"):setLabel("Fov Settings"),
+                    fovSettings:newToggle("main/silent_aim/position_on_target"):setLabel("Position On Target"),
+                    fovSettings:newToggle("main/silent_aim/position_on_barrel"):setLabel("Position On Barrel"),
+                    fovSettings:newToggle("main/silent_aim/radius"):setLabel("Radius")
+                }
+                for _, control in fovControls do
+                    control.instances.button.Visible = false
+                end
+
+                advancedMode.changed:Connect(function(state)
+                    advancedTab.instances.outline.Visible = state
+                    advancedTab.instances.canvas.Visible = false
+                    if not state then
+                        mainTab:setVisible(true)
+                    end
+                    silentAimTabs:_resize()
+                end)
+                showFov.changed:Connect(function(state)
+                    for _, control in fovControls do
+                        control.instances.button.Visible = state
+                    end
+                end)
             end
 
-            local triggerbot = mainTabs:newTab("Triggerbot"):intoSections()
+            local triggerbot = mainTabs:newTab("Triggerbot")
+            local triggerbotTabs = triggerbot:newTabList()
             do
-                local info = triggerbot:newSection("left", "Main")
-                info:newToggle("main/triggerbot/enabled"):setLabel("Enable Triggerbot")
+                local mainTab = triggerbotTabs:newTab("Main"):intoSections()
+                local mainSettings = mainTab:newSection("left", "Main")
+                mainSettings:newToggle("main/triggerbot/enabled"):setLabel("Enabled")
+                local advancedMode = mainSettings:newToggle("main/triggerbot/advanced_mode"):setLabel("Advanced Mode")
+
+                local settings = mainTab:newSection("left", "Triggerbot")
+                settings:newToggle("main/triggerbot/reaction_time"):setLabel("Reaction Time")
+                settings:newToggle("main/triggerbot/reaction_time_offset"):setLabel("Reaction Time Offset")
+                settings:newToggle("main/triggerbot/forget_time"):setLabel("Forget Time")
+                settings:newToggle("main/triggerbot/shoot_delay"):setLabel("Shoot Delay")
+                settings:newToggle("main/triggerbot/max_distance"):setLabel("Max Distance")
+                settings:newToggle("main/triggerbot/part_blacklist"):setLabel("Part Blacklist")
+                settings:newToggle("main/triggerbot/no_delay_between_targets"):setLabel("No Delay Between Targets")
+                settings:newToggle("main/triggerbot/anti_katana"):setLabel("Anti Katana")
+                settings:newToggle("main/triggerbot/check_scoped"):setLabel("Check Scoped")
+                settings:newDropdown("main/triggerbot/part_blacklist_list", true, {"Head", "Body", "Arms", "Legs"}):set({})
+                settings:newDropdown("main/triggerbot/check_scoped_if", true, {"Sniper", "Crossbow"}):set({})
+
+                local advancedTab = triggerbotTabs:newTab("Advanced")
+                advancedTab.instances.outline.Visible = false
+                advancedTab.instances.canvas.Visible = false
+                local advanced = advancedTab:intoSections()
+                advanced:newSection("left", "Advanced")
+                advancedMode.changed:Connect(function(state)
+                    advancedTab.instances.outline.Visible = state
+                    advancedTab.instances.canvas.Visible = false
+                    if not state then
+                        mainTab:setVisible(true)
+                    end
+                    triggerbotTabs:_resize()
+                end)
             end
 
             local rage = mainTabs:newTab("Rage"):intoSections()
@@ -3599,36 +3712,29 @@ do
             end
         end
     
-        local esp= tabList:newTab("ESP"):intoSections()
+        -- Visual parent tab with Combat-style subtabs.
+        local visual = tabList:newTab("Visual")
+        local visualTabs = visual:newTabList()
+
+        local espOptionsTab = visualTabs:newTab("ESP"):intoSections()
         do
-            local nametags = esp:newSection("left", "Names")
-            nametags:newToggle("esp/nametags/enabled"):setLabel("Enable Names")
-            nametags:newToggle("esp/nametags/usedisplayname"):setLabel("Use Display Name")
-            nametags:newLabel("esp/nametagsvis"):setLabel("Nametag Hidden Color"):newColorpicker("esp/nametags/hidden"):set({rgb = Color3.new(1, 1, 1), alpha = 1})
-            nametags:newLabel("esp/nametagshid"):setLabel("Nametag Visible Color"):newColorpicker("esp/nametags/visible"):set({rgb = Color3.new(0, 1, 0), alpha = 1})
-    
-            local healthbars = esp:newSection("left", "Health Bars")
-            healthbars:newToggle("esp/healthbars/enabled"):setLabel("Enable Health Bars")
-            healthbars:newToggle("esp/healthbars/animhploss"):setLabel("Animate HP Loss")
-            healthbars:newSlider("esp/healthbars/animhploss/time", 0.1, 3, 100):set(1.25):setLabel("Animation time (seconds)")
-            healthbars:newLabel("esp/Health Bar Color Type"):setLabel("Health Bar Color Type")
-            healthbars:newDropdown("esp/healthbars/color_type", false, {"Static", "Lerp"}):set("Lerp")
-            healthbars:newLabel("esp/Health Bar Color Min"):setLabel("Health Bar Color Min"):newColorpicker("esp/healthbars/color_min"):set({rgb = Color3.new(1, 0, 0), alpha = 1})
-            healthbars:newLabel("esp/Health Bar Color Max"):setLabel("Health Bar Color Max"):newColorpicker("esp/healthbars/color_max"):set({rgb = Color3.new(0, 1, 0), alpha = 1})
-    
-            local chams = esp:newSection("right", "Chams")
-            chams:newToggle("esp/chams/enabled"):setLabel("Enable Chams")
-    
-            chams:newLabel("esp/chams/fill"):setLabel("Fill Hidden Color"):newColorpicker("esp/chams/fill/color/hidden", true):set({rgb = Color3.new(1, 1, 1), alpha = 0.5})
-            chams:newLabel("esp/chams/fillvis"):setLabel("Fill Visible Color"):newColorpicker("esp/chams/fill/color/visible", true):set({rgb = Color3.new(0, 1, 0), alpha = 0.5})
-    
-            chams:newLabel("esp/chams/outline"):setLabel("Outline Hidden Color"):newColorpicker("esp/chams/outline/color/hidden", true):set({rgb = Color3.new(0, 0, 0), alpha = 0.5})
-            chams:newLabel("esp/chams/outlinevis"):setLabel("Outline Visible Color"):newColorpicker("esp/chams/outline/color/visible", true):set({rgb = Color3.new(0, 0, 0), alpha = 0.5})
+            local espOptions = espOptionsTab:newSection("left", "ESP")
+            espOptions:newToggle("esp/settings/skeleton"):setLabel("Skeleton")
+            espOptions:newToggle("esp/settings/box"):setLabel("Box")
+            espOptions:newToggle("esp/settings/name"):setLabel("Name")
+            espOptions:newToggle("esp/settings/usedisplayname"):setLabel("Use Displayname")
+            espOptions:newToggle("esp/settings/weapon"):setLabel("Weapon")
+            espOptions:newToggle("esp/settings/distance"):setLabel("Distance")
+            espOptions:newToggle("esp/settings/healthbar"):setLabel("Healthbar")
+            espOptions:newToggle("esp/settings/distance_check"):setLabel("Distance Check")
         end
-    
+
+        local crosshair = visualTabs:newTab("Crosshair"):intoSections()
+        -- Crosshair functionality will be added later.
+
         local world = tabList:newTab("World"):intoSections()
         do
-            local info = world:newSection("left", "Main")
+            local info = world:newSection("right", "Main")
             do
                 info:newToggle("world/main/unlock_all"):setLabel("Unlock All")
                 info:newLabel("world/main/label_info"):setLabel("When unlock all is enabled you can pick any")
@@ -3642,6 +3748,12 @@ do
     
         local misc = tabList:newTab("Misc"):intoSections()
         do
+            -- Cosmetics is a checkbox-style toggle and is placed above Movement.
+            local cosmetics = misc:newSection("left", "Cosmetics")
+            do
+                cosmetics:newToggle("misc/cosmetics/show_changer"):setLabel("Cosmetics")
+            end
+
             local movement = misc:newSection("left", "Movement")
             do
                 movement:newToggle("misc/movement/no_slide_cooldown"):setLabel("No Slide Cooldown")
@@ -3652,36 +3764,30 @@ do
                 movement:newToggle("misc/movement/infinite_jump"):setLabel("Infinite Jump")
             end
 
-            -- UI only: no functionality is attached to these buttons.
-            -- Guns are placed first, with the spoofer controls directly below them.
+            -- UI only: no functionality is attached to these controls.
+            -- Guns stay on the right, with Utilities below them.
             local guns = misc:newSection("right", "Guns")
             do
                 guns:newToggle("misc/guns/no_recoil"):setLabel("No Recoil")
                 guns:newToggle("misc/guns/no_spread"):setLabel("No Spread")
                 guns:newToggle("misc/guns/no_shoot_cooldown"):setLabel("No Shoot Cooldown")
-                guns:newToggle("misc/guns/aim_fov_mult/enabled"):setLabel("Enable Aim FOV Multiplier")
-                guns:newSlider("misc/guns/aim_fov_mult/mult", 0, 3, 100):set(0):setLabel("Aim FOV Multiplier")
             end
 
             local miscTools = misc:newSection("right", "Utilities")
             do
-                -- Text-button style controls.
-                miscTools:newButton("misc/utilities/name_spoofer"):setLabel("Name Spoofer")
+                -- Checkbox-style controls.
+                miscTools:newToggle("misc/utilities/name_spoofer"):setLabel("Name Spoofer")
                 miscTools:newTextBox("misc/utilities/name_spoofer_text"):setLabel("Name")
-                miscTools:newButton("misc/utilities/info_spoofer"):setLabel("Info Spoofer")
+                miscTools:newToggle("misc/utilities/info_spoofer"):setLabel("Info Spoofer")
                 miscTools:newDropdown("misc/utilities/info_spoofer_platform", false, {
                     "Mobile",
                     "Desktop",
                     "Controller",
                     "VR",
                 }):set("Mobile")
-                miscTools:newButton("misc/utilities/auto_queue"):setLabel("Auto Queue")
+                miscTools:newToggle("misc/utilities/auto_queue"):setLabel("Auto Queue")
             end
 
-            local cosmetics = misc:newSection("right", "Cosmetics")
-            do
-                cosmetics:newButton("misc/cosmetics/show_changer"):setLabel("Show Cosmetics Changer")
-            end
         end
     
         local settings= tabList:newTab("Settings"):intoSections()
