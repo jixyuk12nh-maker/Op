@@ -1492,34 +1492,22 @@ do
     	end
 
     	function UITabList._resize(self)
-    		local layout = self.instances.layout
-    		local visibleChildren = {}
+    		local layout= self.instances.layout
+    		local cnt= #self.children
+
+    		local totalSize= layout.AbsoluteSize.X - (cnt - 1) * 4
+    		local size= totalSize / cnt
 
     		for _, tab in self.children do
-    			if tab.instances.outline.Visible then
-    				table.insert(visibleChildren, tab)
-    			else
-    				tab.instances.outline.Size = UDim2.new(0, 0, 1, 0)
-    			end
-    		end
-
-    		local cnt = #visibleChildren
-    		if cnt == 0 then
-    			return
-    		end
-
-    		local totalSize = layout.AbsoluteSize.X - (cnt - 1) * 4
-    		local size = totalSize / cnt
-
-    		for _, tab in visibleChildren do
     			tab.instances.outline.Size = UDim2.new(0, size, 1, 0)
     		end
 
-    		local last = visibleChildren[#visibleChildren]
-    		local outline = last.instances.outline
-    		local curr = outline.AbsolutePosition.X + outline.AbsoluteSize.X
-    		local expected = layout.AbsolutePosition.X + layout.AbsoluteSize.X
-    		local diff = expected - curr
+    		local last= self.children[#self.children]
+    		local outline= last.instances.outline
+
+    		local curr= outline.AbsolutePosition.X + outline.AbsoluteSize.X
+    		local expected= layout.AbsolutePosition.X + layout.AbsoluteSize.X
+    		local diff= expected - curr
 
     		if diff ~= 0 then
     			outline.Size += UDim2.new(0, diff, 0, 0)
@@ -3566,118 +3554,62 @@ do
         local main= tabList:newTab("Combat")
         local mainTabs = main:newTabList()
         do
-            local aimbot = mainTabs:newTab("Aimbot")
-            local aimbotTabs = aimbot:newTabList()
+            local aimbot = mainTabs:newTab("Aimbot"):intoSections()
             do
-                local mainTab = aimbotTabs:newTab("Main"):intoSections()
-                local mainSettings = mainTab:newSection("left", "Main")
-                mainSettings:newToggle("main/aimbot/enabled"):setLabel("Enabled")
-                local advancedMode = mainSettings:newToggle("main/aimbot/advanced_mode"):setLabel("Advanced Mode")
-
-                local settings = mainTab:newSection("left", "Aimbot")
+                -- Aimbot is split into two side-by-side boxes: Main Settings (left) and FOV Settings (right).
+                local settings = aimbot:newSection("left", "Main Settings")
+                settings:newToggle("main/aimbot/enabled"):setLabel("Enabled")
                 settings:newToggle("main/aimbot/closest_part"):setLabel("Closest Part")
                 settings:newToggle("main/aimbot/closest_position"):setLabel("Closest Position")
                 settings:newToggle("main/aimbot/delay_position"):setLabel("Delay Position")
                 settings:newToggle("main/aimbot/x_smooth"):setLabel("X Smooth")
                 settings:newToggle("main/aimbot/y_smooth"):setLabel("Y Smooth")
                 settings:newToggle("main/aimbot/jump_smoothing"):setLabel("Jump Smoothing")
-                local showFov = settings:newToggle("main/aimbot/show_fov"):setLabel("Show Fov")
 
-                local advancedTab = aimbotTabs:newTab("Advanced")
-                advancedTab.instances.outline.Visible = false
-                advancedTab.instances.canvas.Visible = false
-                local advanced = advancedTab:intoSections()
-                local fovSettings = advanced:newSection("left", "Fov Settings")
-                local fovControls = {
-                    fovSettings:newToggle("main/aimbot/outline"):setLabel("Outline"),
-                    fovSettings:newToggle("main/aimbot/fill"):setLabel("Fill"),
-                    fovSettings:newToggle("main/aimbot/lerp"):setLabel("Lerp"),
-                    fovSettings:newToggle("main/aimbot/moving_rotation"):setLabel("Moving Rotation"),
-                    fovSettings:newToggle("main/aimbot/speed"):setLabel("Speed"),
-                    fovSettings:newToggle("main/aimbot/fov_settings"):setLabel("Fov Settings"),
-                    fovSettings:newToggle("main/aimbot/radius"):setLabel("Radius"),
-                    fovSettings:newToggle("main/aimbot/smoothing"):setLabel("Smoothing")
-                }
-                for _, control in fovControls do
-                    control.instances.button.Visible = false
-                end
+                local aimbotFov = aimbot:newSection("right", "FOV Settings")
+                local aimbotFovEnabled = aimbotFov:newToggle("main/aimbot/fov_enabled"):setLabel("Enabled")
+                local aimbotShowFov = aimbotFov:newToggle("main/aimbot/show_fov"):setLabel("Show Fov")
+                aimbotFov:newToggle("main/aimbot/outline"):setLabel("Outline")
+                aimbotFov:newToggle("main/aimbot/fill"):setLabel("Fill")
+                aimbotFov:newDropdown("main/aimbot/moving_rotation", false, {"None", "Camera", "Target", "Velocity"}):set("None"):setLabel("Moving Rotation")
+                aimbotFov:newSlider("main/aimbot/rotation_speed", 1, 100, 1):set(50):setLabel("Speed")
+                aimbotFov:newSlider("main/aimbot/fov", 5, 3000, 0.2):set(150):setLabel("FOV")
 
-                advancedMode.changed:Connect(function(state)
-                    advancedTab.instances.outline.Visible = state
-                    advancedTab.instances.canvas.Visible = false
-                    if not state then
-                        mainTab:setVisible(true)
-                    end
-                    aimbotTabs:_resize()
-                end)
-                showFov.changed:Connect(function(state)
-                    for _, control in fovControls do
-                        control.instances.button.Visible = state
-                    end
+                -- FOV Enabled is the master toggle for the visible FOV option.
+                aimbotFovEnabled.changed:Connect(function(state)
+                    aimbotShowFov:set(state)
                 end)
             end
 
-            local silentaimtab = mainTabs:newTab("Silent Aim")
-            local silentAimTabs = silentaimtab:newTabList()
+            local silentaimtab = mainTabs:newTab("Silent Aim"):intoSections()
             do
-                local mainTab = silentAimTabs:newTab("Main"):intoSections()
-                local mainSettings = mainTab:newSection("left", "Main")
-                mainSettings:newToggle("main/silent_aim/enabled"):setLabel("Enabled")
-                local advancedMode = mainSettings:newToggle("main/silent_aim/advanced_mode"):setLabel("Advanced Mode")
-
-                local settings = mainTab:newSection("left", "Silent Aim")
+                -- Silent Aim is split into two side-by-side boxes: Main Settings (left) and FOV Settings (right).
+                local settings = silentaimtab:newSection("left", "Main Settings")
+                settings:newToggle("main/silent_aim/enabled"):setLabel("Enabled")
                 settings:newToggle("main/silent_aim/manipulation"):setLabel("Manipulation")
                 settings:newToggle("main/silent_aim/closest_part"):setLabel("Closest Part")
-                settings:newToggle("main/silent_aim/visualize"):setLabel("Visualize")
-                settings:newToggle("main/silent_aim/headshot_chance"):setLabel("Headshot Chance")
                 settings:newToggle("main/silent_aim/hit_chance"):setLabel("Hit Chance")
-                settings:newSlider("main/silent_aim/hit_chance_value", 1, 100, 1):set(100):setLabel("Hit Chance (%)")
-                local showFov = settings:newToggle("main/silent_aim/show_fov"):setLabel("Show Fov")
+                settings:newSlider("main/silent_aim/hit_chance_value", 1, 100, 1):set(100):setLabel("Hit Chance")
 
-                local advancedTab = silentAimTabs:newTab("Advanced")
-                advancedTab.instances.outline.Visible = false
-                advancedTab.instances.canvas.Visible = false
-                local advanced = advancedTab:intoSections()
-                local fovSettings = advanced:newSection("left", "Fov Settings")
-                local fovControls = {
-                    fovSettings:newToggle("main/silent_aim/outline"):setLabel("Outline"),
-                    fovSettings:newToggle("main/silent_aim/fill"):setLabel("Fill"),
-                    fovSettings:newToggle("main/silent_aim/lerp"):setLabel("Lerp"),
-                    fovSettings:newToggle("main/silent_aim/moving_rotation"):setLabel("Moving Rotation"),
-                    fovSettings:newToggle("main/silent_aim/speed"):setLabel("Speed"),
-                    fovSettings:newToggle("main/silent_aim/fov_settings"):setLabel("Fov Settings"),
-                    fovSettings:newToggle("main/silent_aim/position_on_target"):setLabel("Position On Target"),
-                    fovSettings:newToggle("main/silent_aim/position_on_barrel"):setLabel("Position On Barrel"),
-                    fovSettings:newToggle("main/silent_aim/radius"):setLabel("Radius")
-                }
-                for _, control in fovControls do
-                    control.instances.button.Visible = false
-                end
+                local silentFov = silentaimtab:newSection("right", "FOV Settings")
+                local silentFovEnabled = silentFov:newToggle("main/silent_aim/fov_enabled"):setLabel("Enabled")
+                local silentShowFov = silentFov:newToggle("main/silent_aim/show_fov"):setLabel("Show Fov")
+                silentFov:newToggle("main/silent_aim/outline"):setLabel("Outline")
+                silentFov:newToggle("main/silent_aim/fill"):setLabel("Fill")
+                silentFov:newDropdown("main/silent_aim/moving_rotation", false, {"None", "Camera", "Target", "Velocity"}):set("None"):setLabel("Moving Rotation")
+                silentFov:newSlider("main/silent_aim/rotation_speed", 1, 100, 1):set(50):setLabel("Speed")
+                silentFov:newSlider("main/silent_aim/fov", 5, 3000, 0.2):set(150):setLabel("FOV")
 
-                advancedMode.changed:Connect(function(state)
-                    advancedTab.instances.outline.Visible = state
-                    advancedTab.instances.canvas.Visible = false
-                    if not state then
-                        mainTab:setVisible(true)
-                    end
-                    silentAimTabs:_resize()
-                end)
-                showFov.changed:Connect(function(state)
-                    for _, control in fovControls do
-                        control.instances.button.Visible = state
-                    end
+                -- FOV Enabled is the master toggle for the visible FOV option.
+                silentFovEnabled.changed:Connect(function(state)
+                    silentShowFov:set(state)
                 end)
             end
 
-            local triggerbot = mainTabs:newTab("Triggerbot")
-            local triggerbotTabs = triggerbot:newTabList()
+            local triggerbot = mainTabs:newTab("Triggerbot"):intoSections()
             do
-                local mainTab = triggerbotTabs:newTab("Main"):intoSections()
-                local mainSettings = mainTab:newSection("left", "Main")
-                mainSettings:newToggle("main/triggerbot/enabled"):setLabel("Enabled")
-                local advancedMode = mainSettings:newToggle("main/triggerbot/advanced_mode"):setLabel("Advanced Mode")
-
-                local settings = mainTab:newSection("left", "Triggerbot")
+                -- Main Triggerbot controls are on the right; requested dropdowns stay at the bottom.
+                local settings = triggerbot:newSection("right", "Triggerbot")
                 settings:newToggle("main/triggerbot/reaction_time"):setLabel("Reaction Time")
                 settings:newToggle("main/triggerbot/reaction_time_offset"):setLabel("Reaction Time Offset")
                 settings:newToggle("main/triggerbot/forget_time"):setLabel("Forget Time")
@@ -3689,20 +3621,6 @@ do
                 settings:newToggle("main/triggerbot/check_scoped"):setLabel("Check Scoped")
                 settings:newDropdown("main/triggerbot/part_blacklist_list", true, {"Head", "Body", "Arms", "Legs"}):set({})
                 settings:newDropdown("main/triggerbot/check_scoped_if", true, {"Sniper", "Crossbow"}):set({})
-
-                local advancedTab = triggerbotTabs:newTab("Advanced")
-                advancedTab.instances.outline.Visible = false
-                advancedTab.instances.canvas.Visible = false
-                local advanced = advancedTab:intoSections()
-                advanced:newSection("left", "Advanced")
-                advancedMode.changed:Connect(function(state)
-                    advancedTab.instances.outline.Visible = state
-                    advancedTab.instances.canvas.Visible = false
-                    if not state then
-                        mainTab:setVisible(true)
-                    end
-                    triggerbotTabs:_resize()
-                end)
             end
 
             local rage = mainTabs:newTab("Rage"):intoSections()
@@ -3744,6 +3662,11 @@ do
                     info:newLabel("world/main/label_info3"):setLabel("NOT SUPPORTED ON YOUR EXECUTOR!")
                 end
             end
+
+            local texturePack = world:newSection("left", "Texture Pack")
+            do
+                texturePack:newToggle("world/texture_pack/minecraft"):setLabel("Minecraft")
+            end
         end
     
         local misc = tabList:newTab("Misc"):intoSections()
@@ -3771,6 +3694,7 @@ do
                 guns:newToggle("misc/guns/no_recoil"):setLabel("No Recoil")
                 guns:newToggle("misc/guns/no_spread"):setLabel("No Spread")
                 guns:newToggle("misc/guns/no_shoot_cooldown"):setLabel("No Shoot Cooldown")
+                guns:newSlider("misc/guns/shoot_cooldown", 10, 100, 1):set(10):setLabel("Shoot Cooldown")
             end
 
             local miscTools = misc:newSection("right", "Utilities")
@@ -3794,8 +3718,25 @@ do
         do
             local discord = settings:newSection("left", "Discord")
             do
-                discord:newButton("settings/discord/join"):setLabel("Join Discord")
-                discord:newButton("settings/discord/copy_invite"):setLabel("Copy Discord Invite")
+                local DISCORD_INVITE = "https://discord.gg/WXCupTFwu5"
+                local joinDiscord = discord:newButton("settings/discord/join"):setLabel("Join Discord")
+                local copyInvite = discord:newButton("settings/discord/copy_invite"):setLabel("Copy Discord Invite")
+
+                joinDiscord.changed:Connect(function()
+                    if setclipboard then
+                        pcall(setclipboard, DISCORD_INVITE)
+                    elseif toclipboard then
+                        pcall(toclipboard, DISCORD_INVITE)
+                    end
+                end)
+
+                copyInvite.changed:Connect(function()
+                    if setclipboard then
+                        pcall(setclipboard, DISCORD_INVITE)
+                    elseif toclipboard then
+                        pcall(toclipboard, DISCORD_INVITE)
+                    end
+                end)
             end
 
             local menu = settings:newSection("left", "Menu")
